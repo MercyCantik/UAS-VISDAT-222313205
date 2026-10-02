@@ -87,7 +87,7 @@ function heat(S){
 function sel(S){selK=S;
  $('selinfo').textContent=S?S.size+' kab/kota terpilih.':'';
  radar(S);
- heat(S);if(!S)Plotly.restyle('pca',{selectedpoints:[null]});}
+ heat(S);if(!S){Plotly.restyle('pca',{selectedpoints:[null,null,null,null]});Plotly.relayout('pca',{selections:[]});}}
 function cent(){return G.features.map(f=>{let x=[],y=[];(function w(c){typeof c[0]==='number'?(x.push(c[0]),y.push(c[1])):c.forEach(w)})(f.geometry.coordinates);
  return[f.properties.kode_wilayah,(Math.min(...x)+Math.max(...x))/2,(Math.min(...y)+Math.max(...y))/2]})}
 function drawMap(){
