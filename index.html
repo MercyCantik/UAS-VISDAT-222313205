@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Satu IPM, Banyak Wajah – Profil Pembangunan Manusia Kab/Kota</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js"></script>
+<style>
+body{margin:0;font-family:system-ui,Arial,sans-serif;color:#222;background:#fafafa}
+header{padding:14px 16px;background:#0b3d5c;color:#fff}h1{margin:0;font-size:1.25rem}header p{margin:4px 0 0;font-size:.85rem;opacity:.9}
+nav{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;background:#e8eef2;position:sticky;top:0;z-index:5}
+nav button{padding:8px 14px;border:1px solid #0b3d5c;background:#fff;color:#0b3d5c;border-radius:6px;cursor:pointer;font-size:.9rem}
+nav button.on{background:#0b3d5c;color:#fff}
+section{display:none;padding:10px 12px}section.on{display:block}
+.row{display:flex;flex-wrap:wrap;gap:10px}.row>div{flex:1 1 420px;min-width:0;background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px}
+.src{font-size:.75rem;color:#555;margin:2px 6px 6px}.ctl{margin:6px;font-size:.9rem}h3{margin:6px;font-size:1rem}
+table{border-collapse:collapse;font-size:.85rem;width:100%}td,th{border:1px solid #ddd;padding:4px 6px;text-align:right}th:first-child,td:first-child{text-align:left}
+.box{background:#fff;border:1px solid #ddd;border-radius:6px;padding:10px;margin-bottom:10px;line-height:1.5}
+</style></head><body>
+<header><h1>Satu IPM, Banyak Wajah</h1><p>Visualisasi multivariat, geospasial, dan hierarkis profil pembangunan manusia kabupaten/kota di Indonesia</p></header>
+<nav id="tabs"><button data-t="mv" class="on">Multivariat</button><button data-t="mp">Peta</button><button data-t="hr">Hierarki</button><button data-t="in">Insight</button></nav>
+
+<section id="mv" class="on">
+<div class="box">Pilih area pada <b>scatter PCA</b> (alat lasso/kotak di pojok grafik). Parallel coordinates dan heatmap ikut menyorot kab/kota terpilih. <span id="selinfo"></span> <button onclick="sel(null)">Reset seleksi</button></div>
+<div class="row"><div><h3>Scatter PCA (PC1 vs PC2)</h3><div id="pca" style="height:420px"></div><p class="src"></p></div>
+<div><h3>Heatmap profil klaster (z-score)</h3><div id="heat" style="height:420px"></div><p class="src"></p></div></div>
+<div class="row"><div><h3>Parallel coordinates</h3><div id="pc" style="height:420px"></div><p class="src"></p></div></div>
+</section>
+
+<section id="mp">
+<div class="ctl">Warna peta: <select id="mv_var"><option value="ipm">IPM</option><option value="miskin_p0">Penduduk miskin (%)</option><option value="sanitasi">Sanitasi layak (%)</option><option value="rls">Rata-rata lama sekolah (tahun)</option></select>
+&nbsp;<label><input type="checkbox" id="lc" checked> Koroplet</label> <label><input type="checkbox" id="ls" checked> Simbol proporsional (penduduk)</label></div>
+<div class="row"><div><div id="map" style="height:480px"></div><p class="src"></p><p class="src">Warna dipotong pada persentil 2–98 agar tidak didominasi pencilan. Delapan kab/kota tanpa geometri pada shapefile sumber tidak tampil. Batas wilayah: shapefile kab/kota (non-BPS).</p></div></div>
+</section>
+
+<section id="hr">
+<div class="box">Klik sebuah blok untuk <i>drill-down</i>; jejak posisi (breadcrumb) muncul di atas treemap. Ukuran = jumlah penduduk, warna = IPM (rata-rata tertimbang penduduk pada level induk).</div>
+<div class="row"><div><h3>Treemap: Pulau → Provinsi → Kab/Kota</h3><div id="tm" style="height:520px"></div><p class="src"></p></div>
+<div><h3>Sunburst</h3><div id="sb" style="height:520px"></div><p class="src"></p></div></div>
+</section>
+
+<section id="in"><div id="insight"></div></section>
+
+<script>
+const TAHUN="[2024]";
+const SRCT="Sumber: BPS, data "+TAHUN+". Pengolahan: penulis.";
+const CL=['#D55E00','#E69F00','#56B4E9','#0072B2'];
+const V=['uhh','hls','rls','pengeluaran','miskin_p0','kedalaman_p1','tpt','sanitasi','air_minum'];
+const LB={uhh:'UHH (tahun)',hls:'HLS (tahun)',rls:'RLS (tahun)',pengeluaran:'Pengeluaran (ribu Rp/th)',miskin_p0:'Miskin P0 (%)',kedalaman_p1:'Kedalaman P1',tpt:'TPT (%)',sanitasi:'Sanitasi layak (%)',air_minum:'Air minum layak (%)',ipm:'IPM',penduduk:'Penduduk (jiwa)'};
+const $=id=>document.getElementById(id);
+let D=[],P=[],G=null,VAR=[0,0,0],done={},selK=null;
+const mean=a=>a.reduce((s,x)=>s+x,0)/a.length, sd=a=>{const m=mean(a);return Math.sqrt(mean(a.map(x=>(x-m)**2)))};
+function csv(t){const L=t.trim().split(/\r?\n/).map(l=>l.split(','));const h=L.shift();return L.map(a=>Object.fromEntries(h.map((k,i)=>[k,a[i]])))}
+Promise.all([fetch('data/processed/profil_kabkota.csv').then(r=>r.text()),fetch('data/geo/kabkota.geojson').then(r=>r.json()),fetch('data/processed/pca_loadings.csv').then(r=>r.text())]).then(([c,g,l])=>{
+ G=g;D=csv(c).map(d=>{for(const k in d)if(!['kode_wilayah','nama_wilayah','provinsi','pulau'].includes(k))d[k]=d[k]===''?NaN:(d[k]==='True'?true:d[k]==='False'?false:+d[k]);return d});
+ P=D.filter(d=>d.lengkap_pca);const ld=csv(l).pop();VAR=[+ld.PC1,+ld.PC2,+ld.PC3];
+ document.querySelectorAll('.src').forEach(e=>{if(!e.textContent)e.textContent=SRCT});
+ show('mv');
+});
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>show(b.dataset.t));
+function show(t){document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===t));
+ document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+ if(!done[t]){done[t]=1;({mv:drawMV,mp:drawMap,hr:drawHier,in:drawIn})[t]()}
+ document.querySelectorAll('#'+t+' .js-plotly-plot').forEach(p=>Plotly.Plots.resize(p))}
+const cfg={responsive:true,displaylogo:false};
+function drawMV(){
+ const tr=[1,2,3,4].map(k=>{const r=P.filter(d=>d.klaster===k);return{type:'scattergl',mode:'markers',name:'Klaster '+k,x:r.map(d=>d.pc1),y:r.map(d=>d.pc2),customdata:r.map(d=>d.kode_wilayah),text:r.map(d=>d.nama_wilayah+', '+d.provinsi),marker:{color:CL[k-1],size:7,opacity:.8},hovertemplate:'%{text}<br>PC1 %{x:.2f}, PC2 %{y:.2f}<extra>Klaster '+k+'</extra>'}});
+ Plotly.newPlot('pca',tr,{dragmode:'lasso',margin:{l:50,r:10,t:10,b:45},xaxis:{title:'PC1 ('+(VAR[0]*100).toFixed(0)+'% varians)'},yaxis:{title:'PC2 ('+(VAR[1]*100).toFixed(0)+'% varians)'},legend:{orientation:'h',y:-.2}},cfg);
+ $('pca').on('plotly_selected',e=>sel(e&&e.points.length?new Set(e.points.map(p=>p.customdata)):null));
+ $('pca').on('plotly_deselect',()=>sel(null));
+ const dims=V.map(v=>({label:LB[v],values:P.map(d=>d[v])}));
+ Plotly.newPlot('pc',[{type:'parcoords',dimensions:dims,line:{color:P.map(d=>d.klaster),colorscale:[[0,'#cccccc'],[.25,CL[0]],[.5,CL[1]],[.75,CL[2]],[1,CL[3]]],cmin:0,cmax:4}}],{margin:{l:40,r:40,t:40,b:20}},cfg);
+ heat(null);
+}
+function heat(S){
+ const m=V.map(v=>mean(P.map(d=>d[v]))),s=V.map(v=>sd(P.map(d=>d[v])));
+ const rows=[1,2,3,4].map(k=>P.filter(d=>d.klaster===k)),y=['Klaster 1','Klaster 2','Klaster 3','Klaster 4'];
+ if(S){rows.push(P.filter(d=>S.has(d.kode_wilayah)));y.push('Seleksi')}
+ const z=rows.map(r=>V.map((v,i)=>r.length?(mean(r.map(d=>d[v]))-m[i])/s[i]:0));
+ Plotly.react('heat',[{type:'heatmap',z,x:V.map(v=>LB[v]),y,zmin:-2,zmax:2,colorscale:[[0,'#0072B2'],[.5,'#f7f7f7'],[1,'#D55E00']],colorbar:{title:'z'},text:z.map(r=>r.map(x=>x.toFixed(2))),texttemplate:'%{text}',hovertemplate:'%{y}<br>%{x}: z=%{z:.2f}<extra></extra>'}],{margin:{l:80,r:10,t:10,b:110},yaxis:{autorange:'reversed'},xaxis:{tickangle:-45}},cfg);
+}
+function sel(S){selK=S;
+ $('selinfo').textContent=S?S.size+' kab/kota terpilih.':'';
+ Plotly.restyle('pc',{'line.color':[P.map(d=>!S||S.has(d.kode_wilayah)?d.klaster:0)]});
+ heat(S);if(!S)Plotly.restyle('pca',{selectedpoints:[null]});}
+function cent(){return G.features.map(f=>{let x=[],y=[];(function w(c){typeof c[0]==='number'?(x.push(c[0]),y.push(c[1])):c.forEach(w)})(f.geometry.coordinates);
+ return[f.properties.kode_wilayah,(Math.min(...x)+Math.max(...x))/2,(Math.min(...y)+Math.max(...y))/2]})}
+function drawMap(){
+ const v=$('mv_var').value,M=D.filter(d=>d.ada_geometri&&!isNaN(d[v])),vals=M.map(d=>d[v]).sort((a,b)=>a-b),q=p=>vals[Math.floor(p*(vals.length-1))],tr=[];
+ if($('lc').checked)tr.push({type:'choropleth',geojson:G,featureidkey:'properties.kode_wilayah',locations:M.map(d=>d.kode_wilayah),z:M.map(d=>d[v]),zmin:q(.02),zmax:q(.98),colorscale:'Viridis',marker:{line:{width:.2,color:'#fff'}},colorbar:{title:LB[v]||v,len:.7},text:M.map(d=>d.nama_wilayah+', '+d.provinsi),hovertemplate:'%{text}<br>'+(LB[v]||v)+': %{z:.2f}<extra></extra>'});
+ if($('ls').checked){const C=Object.fromEntries(cent().map(c=>[c[0],c]));const S=M.filter(d=>C[d.kode_wilayah]);
+  tr.push({type:'scattergeo',mode:'markers',name:'Penduduk',lon:S.map(d=>C[d.kode_wilayah][1]),lat:S.map(d=>C[d.kode_wilayah][2]),text:S.map(d=>d.nama_wilayah+'<br>Penduduk: '+d.penduduk.toLocaleString('id-ID')),hoverinfo:'text',marker:{size:S.map(d=>d.penduduk),sizemode:'area',sizeref:2*5.7e6/(38**2),color:'#D55E00',opacity:.55,line:{width:.5,color:'#fff'}}})}
+ Plotly.newPlot('map',tr,{margin:{l:0,r:0,t:0,b:0},showlegend:false,geo:{visible:false,projection:{type:'mercator'},lonaxis:{range:[94.5,141.5]},lataxis:{range:[-11.5,6.5]},bgcolor:'rgba(0,0,0,0)'}},cfg);
+}
+$('mv_var').onchange=$('lc').onchange=$('ls').onchange=drawMap;
+function hier(){const ids=['ID'],lab=['Indonesia'],par=[''],val=[],ipm=[],A={};
+ const add=(id,l,p,v,i)=>{ids.push(id);lab.push(l);par.push(p);A[id]=[v,v*i]};
+ const PL=[...new Set(D.map(d=>d.pulau))],tot=[0,0];
+ D.forEach(d=>{const a=['p:'+d.pulau,'v:'+d.provinsi];[a[0],a[1]].forEach(k=>A[k]||(A[k]=[0,0]));A[a[0]][0]+=d.penduduk;A[a[0]][1]+=d.penduduk*d.ipm;A[a[1]][0]+=d.penduduk;A[a[1]][1]+=d.penduduk*d.ipm;tot[0]+=d.penduduk;tot[1]+=d.penduduk*d.ipm});
+ val.push(tot[0]);ipm.push(tot[1]/tot[0]);
+ PL.forEach(p=>{ids.push('p:'+p);lab.push(p);par.push('ID');val.push(A['p:'+p][0]);ipm.push(A['p:'+p][1]/A['p:'+p][0])});
+ const pv={};D.forEach(d=>pv[d.provinsi]=d.pulau);
+ Object.keys(pv).forEach(v=>{ids.push('v:'+v);lab.push(v);par.push('p:'+pv[v]);val.push(A['v:'+v][0]);ipm.push(A['v:'+v][1]/A['v:'+v][0])});
+ D.forEach(d=>{ids.push('k:'+d.kode_wilayah);lab.push(d.nama_wilayah);par.push('v:'+d.provinsi);val.push(d.penduduk);ipm.push(d.ipm)});
+ return{ids,labels:lab,parents:par,values:val,customdata:ipm,marker:{colors:ipm,colorscale:'Viridis',cmin:55,cmax:85,colorbar:{title:'IPM'}},branchvalues:'total',hovertemplate:'%{label}<br>Penduduk: %{value:,}<br>IPM: %{customdata:.1f}<extra></extra>'}}
+function drawHier(){const h=hier();
+ Plotly.newPlot('tm',[{type:'treemap',...h,maxdepth:3,pathbar:{visible:true},textinfo:'label'}],{margin:{l:0,r:0,t:30,b:0}},cfg);
+ Plotly.newPlot('sb',[{type:'sunburst',...h,maxdepth:3,textinfo:'label'}],{margin:{l:0,r:0,t:10,b:0}},cfg)}
+function drawIn(){
+ const c=[1,2,3,4].map(k=>{const r=P.filter(d=>d.klaster===k);return{k,n:r.length,pap:r.filter(d=>d.pulau==='Papua').length,ipm:mean(r.map(d=>d.ipm)),mis:mean(r.map(d=>d.miskin_p0)),san:mean(r.map(d=>d.sanitasi)),rls:mean(r.map(d=>d.rls))}});
+ const ex=[...P].sort((a,b)=>a.pc1-b.pc1).slice(0,5).map(d=>d.nama_wilayah).join(', ');
+ const r=(a,b)=>{const x=P.map(d=>d[a]),y=P.map(d=>d[b]),mx=mean(x),my=mean(y);return mean(x.map((v,i)=>(v-mx)*(y[i]-my)))/(sd(x)*sd(y))};
+ const lo=P.filter(d=>d.klaster===1);
+ $('insight').innerHTML=`<div class="box"><h3>Temuan utama</h3><ul>
+ <li>PC1 menjelaskan ${(VAR[0]*100).toFixed(0)}% varians: pembangunan manusia pada dasarnya berpusat pada satu sumbu kesejahteraan, tetapi PC2 (${(VAR[1]*100).toFixed(0)}%) memisahkan profil kemiskinan dari profil pendidikan.</li>
+ <li>Klaster 1 (${c[0].n} kab/kota) adalah ujung ekstrem: rata-rata kemiskinan ${c[0].mis.toFixed(0)}%, sanitasi layak ${c[0].san.toFixed(0)}%, RLS ${c[0].rls.toFixed(1)} tahun. ${c[0].pap} di antaranya berada di Papua.</li>
+ <li>Lima kab/kota paling ekstrem pada PC1: ${ex}.</li>
+ <li>Korelasi P0 dan P1 = ${r('miskin_p0','kedalaman_p1').toFixed(2)}: kedua indikator hampir kembar, sehingga dimensi kemiskinan berbobot ganda pada PCA.</li></ul></div>
+ <div class="box"><h3>Ringkasan klaster (rata-rata)</h3><table><tr><th>Klaster</th><th>Jumlah</th><th>IPM</th><th>Miskin (%)</th><th>Sanitasi (%)</th><th>RLS</th></tr>${c.map(x=>`<tr><td style="color:${CL[x.k-1]}"><b>Klaster ${x.k}</b></td><td>${x.n}</td><td>${x.ipm.toFixed(1)}</td><td>${x.mis.toFixed(1)}</td><td>${x.san.toFixed(1)}</td><td>${x.rls.toFixed(1)}</td></tr>`).join('')}</table>
+ <p class="src">${SRCT}</p></div>
+ <div class="box"><h3>Keterbatasan</h3><ul><li>${D.length-P.length} kab/kota (Papua Pegunungan) tidak diikutkan dalam PCA karena data sanitasi/air minum kosong.</li><li>Delapan kab/kota tidak punya geometri pada shapefile sumber sehingga tidak tampil di peta.</li><li>Silhouette klaster rendah (&lt; 0,3): kelompok bersifat kontinum, bukan terpisah tegas.</li><li>Brushing satu arah: seleksi pada scatter PCA menyorot parallel coordinates dan heatmap.</li></ul></div>`}
+</script></body></html>
