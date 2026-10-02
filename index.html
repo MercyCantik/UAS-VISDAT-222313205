@@ -84,10 +84,15 @@ function heat(S){
  const z=rows.map(r=>V.map((v,i)=>r.length?(mean(r.map(d=>d[v]))-m[i])/s[i]:0));
  Plotly.react('heat',[{type:'heatmap',z,x:V.map(v=>LB[v]),y,zmin:-2,zmax:2,colorscale:[[0,'#0072B2'],[.5,'#f7f7f7'],[1,'#D55E00']],colorbar:{title:'z'},text:z.map(r=>r.map(x=>x.toFixed(2))),texttemplate:'%{text}',hovertemplate:'%{y}<br>%{x}: z=%{z:.2f}<extra></extra>'}],{margin:{l:80,r:10,t:10,b:110},yaxis:{autorange:'reversed'},xaxis:{tickangle:-45}},cfg);
 }
+function resetPca(){
+ const g=$('pca');
+ const d=g.data.map(t=>Object.assign({},t,{selectedpoints:null}));
+ Plotly.react(g,d,Object.assign({},g.layout,{selections:[],datarevision:Date.now()}));
+}
 function sel(S){selK=S;
  $('selinfo').textContent=S?S.size+' kab/kota terpilih.':'';
  radar(S);
- heat(S);if(!S){Plotly.restyle('pca',{selectedpoints:[null,null,null,null]});Plotly.relayout('pca',{selections:[]});}}
+ heat(S);if(!S)resetPca();}
 function cent(){return G.features.map(f=>{let x=[],y=[];(function w(c){typeof c[0]==='number'?(x.push(c[0]),y.push(c[1])):c.forEach(w)})(f.geometry.coordinates);
  return[f.properties.kode_wilayah,(Math.min(...x)+Math.max(...x))/2,(Math.min(...y)+Math.max(...y))/2]})}
 function drawMap(){
