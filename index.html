@@ -18,7 +18,7 @@ table{border-collapse:collapse;font-size:.85rem;width:100%}td,th{border:1px soli
 <nav id="tabs"><button data-t="mv" class="on">Multivariat</button><button data-t="mp">Peta</button><button data-t="hr">Hierarki</button><button data-t="in">Insight</button></nav>
 
 <section id="mv" class="on">
-<div class="box">Pilih area pada <b>scatter PCA</b> (alat lasso/kotak di pojok grafik). Radar chart dan heatmap ikut menunjukkan profil kab/kota terpilih. Panah pada scatter (biplot) menunjukkan arah tiap variabel. <span id="selinfo"></span> <button onclick="sel(null)">Reset seleksi</button></div>
+<div class="box">Pilih area pada <b>scatter PCA</b> (alat lasso/kotak di pojok grafik). Parallel coordinates dan heatmap ikut menyorot kab/kota terpilih. <span id="selinfo"></span> <button onclick="sel(null)">Reset seleksi</button></div>
 <div class="row"><div><h3>Scatter PCA (PC1 vs PC2)</h3><div id="pca" style="height:420px"></div><p class="src"></p></div>
 <div><h3>Heatmap profil klaster (z-score)</h3><div id="heat" style="height:420px"></div><p class="src"></p></div></div>
 <div class="row"><div><h3>Radar chart profil klaster</h3><div id="pc" style="height:460px"></div><p class="src"></p><p class="src">Setiap sumbu diskalakan 0–1 (min–maks seluruh kab/kota); Miskin P0 dan P1 dibalik sehingga makin jauh dari pusat = makin baik.</p></div></div>
@@ -45,12 +45,12 @@ const CL=['#D55E00','#E69F00','#56B4E9','#0072B2'];
 const V=['uhh','hls','rls','pengeluaran','miskin_p0','kedalaman_p1','tpt','sanitasi','air_minum'];
 const LB={uhh:'UHH (tahun)',hls:'HLS (tahun)',rls:'RLS (tahun)',pengeluaran:'Pengeluaran (ribu Rp/th)',miskin_p0:'Miskin P0 (%)',kedalaman_p1:'Kedalaman P1',tpt:'TPT (%)',sanitasi:'Sanitasi layak (%)',air_minum:'Air minum layak (%)',ipm:'IPM',penduduk:'Penduduk (jiwa)'};
 const $=id=>document.getElementById(id);
-let LD=[],D=[],P=[],G=null,VAR=[0,0,0],done={},selK=null;
+let D=[],P=[],G=null,VAR=[0,0,0],done={},selK=null;
 const mean=a=>a.reduce((s,x)=>s+x,0)/a.length, sd=a=>{const m=mean(a);return Math.sqrt(mean(a.map(x=>(x-m)**2)))};
 function csv(t){const L=t.trim().split(/\r?\n/).map(l=>l.split(','));const h=L.shift();return L.map(a=>Object.fromEntries(h.map((k,i)=>[k,a[i]])))}
 Promise.all([fetch('data/processed/profil_kabkota.csv').then(r=>r.text()),fetch('data/geo/kabkota.geojson').then(r=>r.json()),fetch('data/processed/pca_loadings.csv').then(r=>r.text())]).then(([c,g,l])=>{
  G=g;D=csv(c).map(d=>{for(const k in d)if(!['kode_wilayah','nama_wilayah','provinsi','pulau'].includes(k))d[k]=d[k]===''?NaN:(d[k]==='True'?true:d[k]==='False'?false:+d[k]);return d});
- P=D.filter(d=>d.lengkap_pca);LD=csv(l);const ld=LD.pop();VAR=[+ld.PC1,+ld.PC2,+ld.PC3];
+ P=D.filter(d=>d.lengkap_pca);const ld=csv(l).pop();VAR=[+ld.PC1,+ld.PC2,+ld.PC3];
  document.querySelectorAll('.src').forEach(e=>{if(!e.textContent)e.textContent=SRCT});
  show('mv');
 });
@@ -62,22 +62,18 @@ function show(t){document.querySelectorAll('section').forEach(s=>s.classList.tog
 const cfg={responsive:true,displaylogo:false};
 function drawMV(){
  const tr=[1,2,3,4].map(k=>{const r=P.filter(d=>d.klaster===k);return{type:'scattergl',mode:'markers',name:'Klaster '+k,x:r.map(d=>d.pc1),y:r.map(d=>d.pc2),customdata:r.map(d=>d.kode_wilayah),text:r.map(d=>d.nama_wilayah+', '+d.provinsi),marker:{color:CL[k-1],size:7,opacity:.8},hovertemplate:'%{text}<br>PC1 %{x:.2f}, PC2 %{y:.2f}<extra>Klaster '+k+'</extra>'}});
- const SC=9;LD.forEach((r,i)=>tr.push({type:'scatter',mode:'lines+text',x:[0,SC*r.PC1],y:[0,SC*r.PC2],text:['',LB[r['']].split(' (')[0]],textposition:'top center',textfont:{size:10,color:'#333'},line:{color:'#555',width:1.5},name:'Arah variabel (biplot)',showlegend:i===0,hoverinfo:'skip'}));
  Plotly.newPlot('pca',tr,{dragmode:'lasso',margin:{l:50,r:10,t:10,b:45},xaxis:{title:'PC1 ('+(VAR[0]*100).toFixed(0)+'% varians)'},yaxis:{title:'PC2 ('+(VAR[1]*100).toFixed(0)+'% varians)'},legend:{orientation:'h',y:-.2}},cfg);
- $('pca').on('plotly_selected',e=>sel(e&&e.points.filter(p=>p.customdata).length?new Set(e.points.filter(p=>p.customdata).map(p=>p.customdata)):null));
+ $('pca').on('plotly_selected',e=>sel(e&&e.points.length?new Set(e.points.map(p=>p.customdata)):null));
  $('pca').on('plotly_deselect',()=>sel(null));
- radar(null);
+ const ORD=['uhh','hls','rls','pengeluaran','sanitasi','air_minum','tpt','miskin_p0','kedalaman_p1'];
+ const dims=ORD.map(v=>{const x=P.map(d=>d[v]),inv=v==='miskin_p0'||v==='kedalaman_p1';return{label:LB[v]+(inv?' ↓':''),values:x,range:inv?[Math.max(...x),Math.min(...x)]:[Math.min(...x),Math.max(...x)]}});
+ Plotly.newPlot('pc',[{type:'parcoords',dimensions:dims,line:{color:pcCol(),colorscale:PCS,cmin:0,cmax:4}}],{margin:{l:50,r:90,t:40,b:20}},cfg);
  heat(null);
 }
-const RV=['uhh','hls','rls','pengeluaran','sanitasi','air_minum','tpt','miskin_p0','kedalaman_p1'],INV=new Set(['miskin_p0','kedalaman_p1']);
-function radar(S){
- const mm=RV.map(v=>{const x=P.map(d=>d[v]);return[Math.min(...x),Math.max(...x)]});
- const th=RV.map(v=>LB[v].split(' (')[0]+(INV.has(v)?' (dibalik)':''));
- const f=r=>{const o=RV.map((v,i)=>{const t=(mean(r.map(d=>d[v]))-mm[i][0])/(mm[i][1]-mm[i][0]);return INV.has(v)?1-t:t});return o.concat(o[0])};
- const tr=[1,2,3,4].map(k=>({type:'scatterpolar',name:'Klaster '+k,r:f(P.filter(d=>d.klaster===k)),theta:th.concat(th[0]),fill:'toself',opacity:.35,line:{color:CL[k-1],width:2},hovertemplate:'%{theta}: %{r:.2f}<extra>Klaster '+k+'</extra>'}));
- if(S&&S.size)tr.push({type:'scatterpolar',name:'Seleksi',r:f(P.filter(d=>S.has(d.kode_wilayah))),theta:th.concat(th[0]),line:{color:'#000',width:3,dash:'dash'},hovertemplate:'%{theta}: %{r:.2f}<extra>Seleksi</extra>'});
- Plotly.react('pc',tr,{margin:{l:70,r:70,t:30,b:50},polar:{radialaxis:{range:[0,1],tickfont:{size:9}},angularaxis:{tickfont:{size:10}}},legend:{orientation:'h',y:-.1}},cfg);
-}
+const PCS=[[0,'rgba(190,190,190,0.06)'],[.25,'rgba(213,94,0,0.55)'],[.5,'rgba(230,159,0,0.45)'],[.75,'rgba(86,180,233,0.35)'],[1,'rgba(0,114,178,0.35)']];
+let pcFilt=0;
+function pcCol(){return P.map(d=>(!selK||selK.has(d.kode_wilayah))&&(!pcFilt||d.klaster===pcFilt)?d.klaster:0)}
+function pcf(k){pcFilt=k;Plotly.restyle('pc',{'line.color':[pcCol()]})}
 function heat(S){
  const m=V.map(v=>mean(P.map(d=>d[v]))),s=V.map(v=>sd(P.map(d=>d[v])));
  const rows=[1,2,3,4].map(k=>P.filter(d=>d.klaster===k)),y=['Klaster 1','Klaster 2','Klaster 3','Klaster 4'];
@@ -87,7 +83,7 @@ function heat(S){
 }
 function sel(S){selK=S;
  $('selinfo').textContent=S?S.size+' kab/kota terpilih.':'';
- radar(S);
+ Plotly.restyle('pc',{'line.color':[pcCol()]});
  heat(S);if(!S)Plotly.restyle('pca',{selectedpoints:[null]});}
 function cent(){return G.features.map(f=>{let x=[],y=[];(function w(c){typeof c[0]==='number'?(x.push(c[0]),y.push(c[1])):c.forEach(w)})(f.geometry.coordinates);
  return[f.properties.kode_wilayah,(Math.min(...x)+Math.max(...x))/2,(Math.min(...y)+Math.max(...y))/2]})}
@@ -124,5 +120,5 @@ function drawIn(){
  <li>Korelasi P0 dan P1 = ${r('miskin_p0','kedalaman_p1').toFixed(2)}: kedua indikator hampir kembar, sehingga dimensi kemiskinan berbobot ganda pada PCA.</li></ul></div>
  <div class="box"><h3>Ringkasan klaster (rata-rata)</h3><table><tr><th>Klaster</th><th>Jumlah</th><th>IPM</th><th>Miskin (%)</th><th>Sanitasi (%)</th><th>RLS</th></tr>${c.map(x=>`<tr><td style="color:${CL[x.k-1]}"><b>Klaster ${x.k}</b></td><td>${x.n}</td><td>${x.ipm.toFixed(1)}</td><td>${x.mis.toFixed(1)}</td><td>${x.san.toFixed(1)}</td><td>${x.rls.toFixed(1)}</td></tr>`).join('')}</table>
  <p class="src">${SRCT}</p></div>
- <div class="box"><h3>Keterbatasan</h3><ul><li>${D.length-P.length} kab/kota (Papua Pegunungan) tidak diikutkan dalam PCA karena data sanitasi/air minum kosong.</li><li>Delapan kab/kota tidak punya geometri pada shapefile sumber sehingga tidak tampil di peta.</li><li>Silhouette klaster rendah (&lt; 0,3): kelompok bersifat kontinum, bukan terpisah tegas.</li><li>Brushing satu arah: seleksi pada scatter PCA memperbarui radar chart dan heatmap.</li></ul></div>`}
+ <div class="box"><h3>Keterbatasan</h3><ul><li>${D.length-P.length} kab/kota (Papua Pegunungan) tidak diikutkan dalam PCA karena data sanitasi/air minum kosong.</li><li>Delapan kab/kota tidak punya geometri pada shapefile sumber sehingga tidak tampil di peta.</li><li>Silhouette klaster rendah (&lt; 0,3): kelompok bersifat kontinum, bukan terpisah tegas.</li><li>Brushing satu arah: seleksi pada scatter PCA menyorot parallel coordinates dan heatmap.</li></ul></div>`}
 </script></body></html>
