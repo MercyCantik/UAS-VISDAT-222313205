@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Satu IPM, Banyak Wajah – Profil Pembangunan Manusia Kab/Kota</title>
-  <script src="plotly.min.js"></script>
+<script src="plotly.min.js"></script>
 <style>
 body{margin:0;font-family:system-ui,Arial,sans-serif;color:#222;background:#fafafa}
 header{padding:14px 16px;background:#0b3d5c;color:#fff}h1{margin:0;font-size:1.25rem}header p{margin:4px 0 0;font-size:.85rem;opacity:.9}
@@ -21,7 +21,7 @@ table{border-collapse:collapse;font-size:.85rem;width:100%}td,th{border:1px soli
 <div class="box">Pilih area pada <b>scatter PCA</b> (alat lasso/kotak di pojok grafik). Parallel coordinates dan heatmap ikut menyorot kab/kota terpilih. <span id="selinfo"></span> <button onclick="sel(null)">Reset seleksi</button></div>
 <div class="row"><div><h3>Scatter PCA (PC1 vs PC2)</h3><div id="pca" style="height:420px"></div><p class="src"></p></div>
 <div><h3>Heatmap profil klaster (z-score)</h3><div id="heat" style="height:420px"></div><p class="src"></p></div></div>
-<div class="row"><div><h3>Parallel coordinates</h3><div id="pc" style="height:420px"></div><p class="src"></p></div></div>
+<div class="row"><div><h3>Parallel coordinates</h3><div class="ctl">Tampilkan: <button onclick="pcf(0)">Semua</button> <button onclick="pcf(1)" style="color:#D55E00">Klaster 1</button> <button onclick="pcf(2)" style="color:#B07800">Klaster 2</button> <button onclick="pcf(3)" style="color:#2a8fc9">Klaster 3</button> <button onclick="pcf(4)" style="color:#0072B2">Klaster 4</button> <small>(sumbu Miskin P0 dan P1 dibalik: atas = lebih baik)</small></div><div id="pc" style="height:420px"></div><p class="src"></p></div></div>
 </section>
 
 <section id="mp">
@@ -39,7 +39,7 @@ table{border-collapse:collapse;font-size:.85rem;width:100%}td,th{border:1px soli
 <section id="in"><div id="insight"></div></section>
 
 <script>
-const TAHUN="[2024]";
+const TAHUN="2024";
 const SRCT="Sumber: BPS, data "+TAHUN+". Pengolahan: penulis.";
 const CL=['#D55E00','#E69F00','#56B4E9','#0072B2'];
 const V=['uhh','hls','rls','pengeluaran','miskin_p0','kedalaman_p1','tpt','sanitasi','air_minum'];
@@ -65,10 +65,15 @@ function drawMV(){
  Plotly.newPlot('pca',tr,{dragmode:'lasso',margin:{l:50,r:10,t:10,b:45},xaxis:{title:'PC1 ('+(VAR[0]*100).toFixed(0)+'% varians)'},yaxis:{title:'PC2 ('+(VAR[1]*100).toFixed(0)+'% varians)'},legend:{orientation:'h',y:-.2}},cfg);
  $('pca').on('plotly_selected',e=>sel(e&&e.points.length?new Set(e.points.map(p=>p.customdata)):null));
  $('pca').on('plotly_deselect',()=>sel(null));
- const dims=V.map(v=>({label:LB[v],values:P.map(d=>d[v])}));
- Plotly.newPlot('pc',[{type:'parcoords',dimensions:dims,line:{color:P.map(d=>d.klaster),colorscale:[[0,'#cccccc'],[.25,CL[0]],[.5,CL[1]],[.75,CL[2]],[1,CL[3]]],cmin:0,cmax:4}}],{margin:{l:40,r:40,t:40,b:20}},cfg);
+ const ORD=['uhh','hls','rls','pengeluaran','sanitasi','air_minum','tpt','miskin_p0','kedalaman_p1'];
+ const dims=ORD.map(v=>{const x=P.map(d=>d[v]),inv=v==='miskin_p0'||v==='kedalaman_p1';return{label:LB[v]+(inv?' ↓':''),values:x,range:inv?[Math.max(...x),Math.min(...x)]:[Math.min(...x),Math.max(...x)]}});
+ Plotly.newPlot('pc',[{type:'parcoords',dimensions:dims,line:{color:pcCol(),colorscale:PCS,cmin:0,cmax:4}}],{margin:{l:50,r:90,t:40,b:20}},cfg);
  heat(null);
 }
+const PCS=[[0,'rgba(190,190,190,0.06)'],[.25,'rgba(213,94,0,0.55)'],[.5,'rgba(230,159,0,0.45)'],[.75,'rgba(86,180,233,0.35)'],[1,'rgba(0,114,178,0.35)']];
+let pcFilt=0;
+function pcCol(){return P.map(d=>(!selK||selK.has(d.kode_wilayah))&&(!pcFilt||d.klaster===pcFilt)?d.klaster:0)}
+function pcf(k){pcFilt=k;Plotly.restyle('pc',{'line.color':[pcCol()]})}
 function heat(S){
  const m=V.map(v=>mean(P.map(d=>d[v]))),s=V.map(v=>sd(P.map(d=>d[v])));
  const rows=[1,2,3,4].map(k=>P.filter(d=>d.klaster===k)),y=['Klaster 1','Klaster 2','Klaster 3','Klaster 4'];
@@ -78,7 +83,7 @@ function heat(S){
 }
 function sel(S){selK=S;
  $('selinfo').textContent=S?S.size+' kab/kota terpilih.':'';
- Plotly.restyle('pc',{'line.color':[P.map(d=>!S||S.has(d.kode_wilayah)?d.klaster:0)]});
+ Plotly.restyle('pc',{'line.color':[pcCol()]});
  heat(S);if(!S)Plotly.restyle('pca',{selectedpoints:[null]});}
 function cent(){return G.features.map(f=>{let x=[],y=[];(function w(c){typeof c[0]==='number'?(x.push(c[0]),y.push(c[1])):c.forEach(w)})(f.geometry.coordinates);
  return[f.properties.kode_wilayah,(Math.min(...x)+Math.max(...x))/2,(Math.min(...y)+Math.max(...y))/2]})}
