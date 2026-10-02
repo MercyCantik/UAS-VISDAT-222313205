@@ -18,8 +18,8 @@ table{border-collapse:collapse;font-size:.85rem;width:100%}td,th{border:1px soli
 <nav id="tabs"><button data-t="mv" class="on">Multivariat</button><button data-t="mp">Peta</button><button data-t="hr">Hierarki</button><button data-t="in">Insight</button></nav>
 
 <section id="mv" class="on">
-<div class="box">Pilih area pada <b>scatter PCA</b> (alat lasso/kotak di pojok grafik). Radar chart dan heatmap ikut menunjukkan profil kab/kota terpilih. <span id="selinfo"></span> <button onclick="sel(null)">Reset seleksi</button></div>
-<div class="row"><div><h3>Scatter PCA (PC1 vs PC2)</h3><div id="pca" style="height:420px"></div><p class="src"></p></div>
+<div class="box">Seret kursor pada scatter PCA untuk melingkari kab/kota yang ingin kamu lihat (atau pilih ikon kotak di pojok grafik). Heatmap dan radar chart akan langsung menampilkan profil kab/kota yang terpilih. <span id="selinfo"></span></div>
+<div class="row"><div><h3>Scatter PCA (PC1 vs PC2)</h3><div style="position:relative"><div id="pca" style="height:420px"></div><button onclick="sel(null)" style="position:absolute;top:8px;left:60px;z-index:3">Reset seleksi</button></div><p class="src"></p></div>
 <div><h3>Heatmap profil klaster (z-score)</h3><div id="heat" style="height:420px"></div><p class="src"></p></div></div>
 <div class="row"><div><h3>Radar chart profil klaster</h3><div id="pc" style="height:460px"></div><p class="src"></p><p class="src">Setiap sumbu diskalakan 0–1 (min–maks seluruh kab/kota); Miskin P0 dan P1 dibalik sehingga makin jauh dari pusat = makin baik.</p></div></div>
 </section>
