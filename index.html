@@ -17,27 +17,32 @@ table{border-collapse:collapse;font-size:.85rem;width:100%}td,th{border:1px soli
 <header><h1>Satu IPM, Banyak Wajah</h1><p>Visualisasi multivariat, geospasial, dan hierarkis profil pembangunan manusia kabupaten/kota di Indonesia</p></header>
 <nav id="tabs"><button data-t="mv" class="on">Multivariat</button><button data-t="mp">Peta</button><button data-t="hr">Hierarki</button><button data-t="in">Insight</button></nav>
 
+<!-- Menu Multivariate-->
 <section id="mv" class="on">
 <div class="box">Seret kursor pada scatter PCA untuk melingkari kab/kota yang ingin kamu lihat (atau pilih ikon kotak di pojok grafik). Heatmap dan radar chart akan langsung menampilkan profil kab/kota yang terpilih. <span id="selinfo"></span></div>
-<div class="row"><div><div style="display:flex;justify-content:space-between;align-items:center"><h3>Scatter PCA (PC1 vs PC2)</h3><button onclick="sel(null)" style="margin:6px">Reset seleksi</button></div><div id="pca" style="height:420px"></div><p class="src"></p></div>
-<div><h3>Heatmap profil klaster (z-score)</h3><div id="heat" style="height:420px"></div><p class="src"></p></div></div>
-<div class="row"><div><h3>Radar chart profil klaster</h3><div id="pc" style="height:460px"></div><p class="src"></p><p class="src">Setiap sumbu diskalakan 0–1 (min–maks seluruh kab/kota); Miskin P0 dan P1 dibalik sehingga makin jauh dari pusat = makin baik.</p></div></div>
+<div class="row"><div><div style="display:flex;justify-content:space-between;align-items:center"><h3>Pemetaan Kemiripan Profil Kab/Kota <small style="font-weight:normal">(Scatter PCA)</small></h3><button onclick="sel(null)" style="margin:6px">Reset seleksi</button></div><div id="pca" style="height:420px"></div><p class="src"></p></div>
+<div><h3>Perbandingan Profil Antarklaster <small style="font-weight:normal">(Heatmap z-score)</small></h3><div id="heat" style="height:420px"></div><p class="src"></p></div></div>
+<div class="row"><div><h3>Profil Multidimensi Tiap Klaster <small style="font-weight:normal">(Radar Chart)</small></h3><div id="pc" style="height:460px"></div><p class="src"></p><p class="src">Setiap sumbu diskalakan 0–1 (min–maks seluruh kab/kota); Miskin P0 dan P1 dibalik sehingga makin jauh dari pusat = makin baik.</p></div></div>
 </section>
 
+<!-- Menu Peta -->
 <section id="mp">
 <div class="ctl">Warna peta: <select id="mv_var"><option value="ipm">IPM</option><option value="miskin_p0">Penduduk miskin (%)</option><option value="sanitasi">Sanitasi layak (%)</option><option value="rls">Rata-rata lama sekolah (tahun)</option></select>
-&nbsp;<label><input type="checkbox" id="ls" checked> Simbol proporsional (penduduk)</label></div>
-<div class="row"><div><div id="map" style="height:480px"></div><p class="src"></p><p class="src">Warna dipotong pada persentil 2–98 agar tidak didominasi pencilan. Delapan kab/kota tanpa geometri pada shapefile sumber tidak tampil. Batas wilayah: shapefile kab/kota (non-BPS).</p></div></div>
+&nbsp;<label><input type="checkbox" id="lc" checked> Koroplet</label> <label><input type="checkbox" id="ls" checked> Simbol proporsional (penduduk)</label></div>
+<div class="row"><div><h3>Sebaran Spasial Indikator Pembangunan Manusia <small style="font-weight:normal">(Koroplet dan Simbol Proporsional)</small></h3><div id="map" style="height:480px"></div><p class="src"></p><p class="src">Warna dipotong pada persentil 2–98 agar tidak didominasi pencilan. Delapan kab/kota tanpa geometri pada shapefile sumber tidak tampil. Batas wilayah: shapefile kab/kota (non-BPS).</p></div></div>
 </section>
 
+<!-- Menu Hierarki -->
 <section id="hr">
 <div class="box">Klik sebuah blok untuk <i>drill-down</i>; jejak posisi (breadcrumb) muncul di atas treemap. Ukuran = jumlah penduduk, warna = IPM (rata-rata tertimbang penduduk pada level induk).</div>
-<div class="row"><div><h3>Treemap: Pulau → Provinsi → Kab/Kota</h3><div id="tm" style="height:520px"></div><p class="src"></p></div>
-<div><h3>Sunburst</h3><div id="sb" style="height:520px"></div><p class="src"></p></div></div>
+<div class="row"><div><h3>Struktur Penduduk dan IPM menurut Wilayah <small style="font-weight:normal">(Treemap: Pulau → Provinsi → Kab/Kota)</small></h3><div id="tm" style="height:520px"></div><p class="src"></p></div>
+<div><h3>Hierarki Wilayah: Pulau, Provinsi, Kab/Kota <small style="font-weight:normal">(Sunburst)</small></h3><div id="sb" style="height:520px"></div><p class="src"></p></div></div>
 </section>
 
+<!-- Menu Insight -->
 <section id="in"><div id="insight"></div></section>
 
+<!-- Skrip -->
 <script>
 const TAHUN="2024";
 const SRCT="Sumber: BPS, data "+TAHUN+". Pengolahan: penulis.";
@@ -97,12 +102,12 @@ function cent(){return G.features.map(f=>{let x=[],y=[];(function w(c){typeof c[
  return[f.properties.kode_wilayah,(Math.min(...x)+Math.max(...x))/2,(Math.min(...y)+Math.max(...y))/2]})}
 function drawMap(){
  const v=$('mv_var').value,M=D.filter(d=>d.ada_geometri&&!isNaN(d[v])),vals=M.map(d=>d[v]).sort((a,b)=>a-b),q=p=>vals[Math.floor(p*(vals.length-1))],tr=[];
- tr.push({type:'choropleth',geojson:G,featureidkey:'properties.kode_wilayah',locations:M.map(d=>d.kode_wilayah),z:M.map(d=>d[v]),zmin:q(.02),zmax:q(.98),colorscale:'Viridis',marker:{line:{width:.2,color:'#fff'}},colorbar:{title:LB[v]||v,len:.7},text:M.map(d=>d.nama_wilayah+', '+d.provinsi),hovertemplate:'%{text}<br>'+(LB[v]||v)+': %{z:.2f}<extra></extra>'});
+ if($('lc').checked)tr.push({type:'choropleth',geojson:G,featureidkey:'properties.kode_wilayah',locations:M.map(d=>d.kode_wilayah),z:M.map(d=>d[v]),zmin:q(.02),zmax:q(.98),colorscale:'Viridis',marker:{line:{width:.2,color:'#fff'}},colorbar:{title:LB[v]||v,len:.7},text:M.map(d=>d.nama_wilayah+', '+d.provinsi),hovertemplate:'%{text}<br>'+(LB[v]||v)+': %{z:.2f}<extra></extra>'});
  if($('ls').checked){const C=Object.fromEntries(cent().map(c=>[c[0],c]));const S=M.filter(d=>C[d.kode_wilayah]);
   tr.push({type:'scattergeo',mode:'markers',name:'Penduduk',lon:S.map(d=>C[d.kode_wilayah][1]),lat:S.map(d=>C[d.kode_wilayah][2]),text:S.map(d=>d.nama_wilayah+'<br>Penduduk: '+d.penduduk.toLocaleString('id-ID')),hoverinfo:'text',marker:{size:S.map(d=>d.penduduk),sizemode:'area',sizeref:2*5.7e6/(38**2),color:'#D55E00',opacity:.55,line:{width:.5,color:'#fff'}}})}
  Plotly.newPlot('map',tr,{margin:{l:0,r:0,t:0,b:0},showlegend:false,geo:{visible:false,projection:{type:'mercator'},lonaxis:{range:[94.5,141.5]},lataxis:{range:[-11.5,6.5]},bgcolor:'rgba(0,0,0,0)'}},cfg);
 }
-$('mv_var').onchange=$('ls').onchange=drawMap;
+$('mv_var').onchange=$('lc').onchange=$('ls').onchange=drawMap;
 function hier(){const ids=['ID'],lab=['Indonesia'],par=[''],val=[],ipm=[],A={};
  const add=(id,l,p,v,i)=>{ids.push(id);lab.push(l);par.push(p);A[id]=[v,v*i]};
  const PL=[...new Set(D.map(d=>d.pulau))],tot=[0,0];
@@ -121,12 +126,12 @@ function drawIn(){
  const ex=[...P].sort((a,b)=>a.pc1-b.pc1).slice(0,5).map(d=>d.nama_wilayah).join(', ');
  const r=(a,b)=>{const x=P.map(d=>d[a]),y=P.map(d=>d[b]),mx=mean(x),my=mean(y);return mean(x.map((v,i)=>(v-mx)*(y[i]-my)))/(sd(x)*sd(y))};
  const lo=P.filter(d=>d.klaster===1);
- $('insight').innerHTML=`<div class="box"><h3>Temuan utama</h3><ul>
+ $('insight').innerHTML=`<div class="box"><h3>Temuan Utama</h3><ul>
  <li>PC1 menjelaskan ${(VAR[0]*100).toFixed(0)}% varians: pembangunan manusia pada dasarnya berpusat pada satu sumbu kesejahteraan, tetapi PC2 (${(VAR[1]*100).toFixed(0)}%) memisahkan profil kemiskinan dari profil pendidikan.</li>
  <li>Klaster 1 (${c[0].n} kab/kota) adalah ujung ekstrem: rata-rata kemiskinan ${c[0].mis.toFixed(0)}%, sanitasi layak ${c[0].san.toFixed(0)}%, RLS ${c[0].rls.toFixed(1)} tahun. ${c[0].pap} di antaranya berada di Papua.</li>
  <li>Lima kab/kota paling ekstrem pada PC1: ${ex}.</li>
  <li>Korelasi P0 dan P1 = ${r('miskin_p0','kedalaman_p1').toFixed(2)}: kedua indikator hampir kembar, sehingga dimensi kemiskinan berbobot ganda pada PCA.</li></ul></div>
- <div class="box"><h3>Ringkasan klaster (rata-rata)</h3><table><tr><th>Klaster</th><th>Jumlah</th><th>IPM</th><th>Miskin (%)</th><th>Sanitasi (%)</th><th>RLS</th></tr>${c.map(x=>`<tr><td style="color:${CL[x.k-1]}"><b>Klaster ${x.k}</b></td><td>${x.n}</td><td>${x.ipm.toFixed(1)}</td><td>${x.mis.toFixed(1)}</td><td>${x.san.toFixed(1)}</td><td>${x.rls.toFixed(1)}</td></tr>`).join('')}</table>
+ <div class="box"><h3>Ringkasan Karakteristik Klaster</h3><table><tr><th>Klaster</th><th>Jumlah</th><th>IPM</th><th>Miskin (%)</th><th>Sanitasi (%)</th><th>RLS</th></tr>${c.map(x=>`<tr><td style="color:${CL[x.k-1]}"><b>Klaster ${x.k}</b></td><td>${x.n}</td><td>${x.ipm.toFixed(1)}</td><td>${x.mis.toFixed(1)}</td><td>${x.san.toFixed(1)}</td><td>${x.rls.toFixed(1)}</td></tr>`).join('')}</table>
  <p class="src">${SRCT}</p></div>
- <div class="box"><h3>Keterbatasan</h3><ul><li>${D.length-P.length} kab/kota (Papua Pegunungan) tidak diikutkan dalam PCA karena data sanitasi/air minum kosong.</li><li>Delapan kab/kota tidak punya geometri pada shapefile sumber sehingga tidak tampil di peta.</li><li>Silhouette klaster rendah (&lt; 0,3): kelompok bersifat kontinum, bukan terpisah tegas.</li><li>Brushing satu arah: seleksi pada scatter PCA memperbarui radar chart dan heatmap.</li></ul></div>`}
+ <div class="box"><h3>Keterbatasan Data dan Analisis</h3><ul><li>${D.length-P.length} kab/kota (Papua Pegunungan) tidak diikutkan dalam PCA karena data sanitasi/air minum kosong.</li><li>Delapan kab/kota tidak punya geometri pada shapefile sumber sehingga tidak tampil di peta.</li><li>Silhouette klaster rendah (&lt; 0,3): kelompok bersifat kontinum, bukan terpisah tegas.</li><li>Brushing satu arah: seleksi pada scatter PCA memperbarui radar chart dan heatmap.</li></ul></div>`}
 </script></body></html>
