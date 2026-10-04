@@ -108,7 +108,7 @@ function drawMap(){
  const tr=[
   {type:'choropleth',geojson:G,featureidkey:'properties.kode_wilayah',locations:M.map(d=>d.kode_wilayah),z:zv,zmin,zmax,colorscale:cs,marker:{line:{width:.2,color:'#fff'}},colorbar:cb,
    text:M.map(d=>d.nama_wilayah+', '+d.provinsi+'<br>Penduduk: '+d.penduduk.toLocaleString('id-ID')+' jiwa'),customdata:M.map(d=>d[v]),hovertemplate:ht},
-  {type:'choropleth',geojson:G,featureidkey:'properties.kode_wilayah',locations:[],z:[],text:[],customdata:[],zmin,zmax,colorscale:cs,showscale:false,marker:{line:{width:3,color:'#000'}},hovertemplate:ht}
+  {type:'choropleth',geojson:G,featureidkey:'properties.kode_wilayah',locations:[],z:[],text:[],customdata:[],zmin,zmax,colorscale:cs,showscale:false,marker:{line:{width:1.2,color:'#000'}},hovertemplate:ht}
  ];
  Plotly.newPlot('map',tr,{margin:{l:0,r:0,t:0,b:0},showlegend:false,geo:{visible:false,projection:{type:'mercator'},lonaxis:{range:[94.5,141.5]},lataxis:{range:[-11.5,6.5]},bgcolor:'rgba(0,0,0,0)'}},cfg);
  const m=$('map');let tm=null;
