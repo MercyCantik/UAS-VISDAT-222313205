@@ -133,7 +133,7 @@ function drawMap(){
  });
 }
 
-$('mv_var').onchange=drawMap;$('mv_var').onchange=$('ls').onchange=drawMap;
+$('mv_var').onchange=$('ls').onchange=drawMap;
 function hier(){const ids=['ID'],lab=['Indonesia'],par=[''],val=[],ipm=[],A={};
  const add=(id,l,p,v,i)=>{ids.push(id);lab.push(l);par.push(p);A[id]=[v,v*i]};
  const PL=[...new Set(D.map(d=>d.pulau))],tot=[0,0];
@@ -159,5 +159,5 @@ function drawIn(){
  <li>Korelasi P0 dan P1 = ${r('miskin_p0','kedalaman_p1').toFixed(2)}: kedua indikator hampir kembar, sehingga dimensi kemiskinan berbobot ganda pada PCA.</li></ul></div>
  <div class="box"><h3>Ringkasan Karakteristik Klaster</h3><table><tr><th>Kelompok</th><th>Jumlah</th><th>IPM</th><th>Miskin (%)</th><th>Sanitasi (%)</th><th>RLS</th></tr>${c.map(x=>`<tr><td style="color:${CL[x.k-1]}"><b>${NK[x.k-1]}</b></td><td>${x.n}</td><td>${x.ipm.toFixed(1)}</td><td>${x.mis.toFixed(1)}</td><td>${x.san.toFixed(1)}</td><td>${x.rls.toFixed(1)}</td></tr>`).join('')}</table>
  <p class="src">${SRCT}</p></div>
- <div class="box"><h3>Keterbatasan Data dan Analisis</h3><ul><li>${D.length-P.length} kab/kota (Papua Pegunungan) tidak diikutkan dalam PCA karena data sanitasi/air minum kosong.</li><li>Delapan kab/kota tidak punya geometri pada shapefile sumber sehingga tidak tampil di peta.</li><li>Silhouette klaster rendah (&lt; 0,3): kelompok bersifat kontinum, bukan terpisah tegas.</li><li>Brushing satu arah: seleksi pada scatter PCA memperbarui radar chart dan heatmap.</li></ul></div>`}
+ <div class="box"><h3>Keterbatasan Data dan Analisis</h3><ul><li>${D.length-P.length} kab/kota (Papua) tidak diikutkan dalam PCA karena data sanitasi/air minum kosong.</li><li>Delapan kab/kota tidak punya geometri pada shapefile sumber sehingga tidak tampil di peta.</li><li>Silhouette klaster rendah (&lt; 0,3): kelompok bersifat kontinum, bukan terpisah tegas.</li><li>Brushing satu arah: seleksi pada scatter PCA memperbarui radar chart dan heatmap.</li></ul></div>`}
 </script></body></html>
