@@ -101,14 +101,22 @@ function sel(S){selK=S;
 function drawMap(){
  const v=$('mv_var').value,pop=v==='penduduk',M=D.filter(d=>d.ada_geometri&&!isNaN(d[v])),
   zv=M.map(d=>pop?Math.log10(d[v]):d[v]),vals=[...zv].sort((a,b)=>a-b),q=p=>vals[Math.floor(p*(vals.length-1))],zmin=q(.02),zmax=q(.98);
- const cb={title:LB[v]||v,len:.7};
+ const cb={title:LB[v]||v,len:.7},cs=pop?'Blues':'Viridis';
  if(pop){const T=[[1e4,'10 rb'],[3e4,'30 rb'],[1e5,'100 rb'],[3e5,'300 rb'],[1e6,'1 jt'],[3e6,'3 jt']].filter(t=>Math.log10(t[0])>=zmin&&Math.log10(t[0])<=zmax);
   cb.tickvals=T.map(t=>Math.log10(t[0]));cb.ticktext=T.map(t=>t[1])}
- const tr=[{type:'choropleth',geojson:G,featureidkey:'properties.kode_wilayah',locations:M.map(d=>d.kode_wilayah),z:zv,zmin,zmax,colorscale:pop?'Blues':'Viridis',marker:{line:{width:.2,color:'#fff'}},colorbar:cb,
-  text:M.map(d=>d.nama_wilayah+', '+d.provinsi+'<br>Penduduk: '+d.penduduk.toLocaleString('id-ID')+' jiwa'),customdata:M.map(d=>d[v]),
-  hovertemplate:pop?'%{text}<extra></extra>':'%{text}<br>'+(LB[v]||v)+': %{customdata:.2f}<extra></extra>'}];
+ const tr=[
+  {type:'choropleth',geojson:G,featureidkey:'properties.kode_wilayah',locations:M.map(d=>d.kode_wilayah),z:zv,zmin,zmax,colorscale:cs,marker:{line:{width:.2,color:'#fff'}},colorbar:cb,
+   text:M.map(d=>d.nama_wilayah+', '+d.provinsi+'<br>Penduduk: '+d.penduduk.toLocaleString('id-ID')+' jiwa'),customdata:M.map(d=>d[v]),
+   hovertemplate:pop?'%{text}<extra></extra>':'%{text}<br>'+(LB[v]||v)+': %{customdata:.2f}<extra></extra>'},
+  {type:'choropleth',geojson:G,featureidkey:'properties.kode_wilayah',locations:[],z:[],zmin,zmax,colorscale:cs,showscale:false,hoverinfo:'skip',marker:{line:{width:2.5,color:'#000'}}}
+ ];
  Plotly.newPlot('map',tr,{margin:{l:0,r:0,t:0,b:0},showlegend:false,geo:{visible:false,projection:{type:'mercator'},lonaxis:{range:[94.5,141.5]},lataxis:{range:[-11.5,6.5]},bgcolor:'rgba(0,0,0,0)'}},cfg);
+ const m=$('map');
+ m.removeAllListeners('plotly_hover');m.removeAllListeners('plotly_unhover');
+ m.on('plotly_hover',e=>{const p=e.points[0];if(p.curveNumber!==0)return;Plotly.restyle('map',{locations:[[p.location]],z:[[p.z]]},[1])});
+ m.on('plotly_unhover',()=>Plotly.restyle('map',{locations:[[]],z:[[]]},[1]));
 }
+
 $('mv_var').onchange=drawMap;
 function hier(){const ids=['ID'],lab=['Indonesia'],par=[''],val=[],ipm=[],A={};
  const add=(id,l,p,v,i)=>{ids.push(id);lab.push(l);par.push(p);A[id]=[v,v*i]};
