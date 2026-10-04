@@ -27,8 +27,8 @@ table{border-collapse:collapse;font-size:.85rem;width:100%}td,th{border:1px soli
 
 <!-- Menu Peta -->
 <section id="mp">
-<div class="ctl">Warna peta: <select id="mv_var"><option value="ipm">IPM</option><option value="miskin_p0">Penduduk miskin (%)</option><option value="sanitasi">Sanitasi layak (%)</option><option value="rls">Rata-rata lama sekolah (tahun)</option><option value="penduduk">Jumlah penduduk (jiwa)</option></select></div>
-<div class="row"><div><h3>Sebaran Spasial Indikator Pembangunan Manusia <small style="font-weight:normal">(Peta Koroplet)</small></h3><div id="map" style="height:480px"></div><p class="src"></p><p class="src">Warna dipotong pada persentil 2–98 agar tidak didominasi pencilan. Delapan kab/kota tanpa geometri pada shapefile sumber tidak tampil. Batas wilayah: shapefile kab/kota (non-BPS).</p></div></div>
+<div class="ctl">Warna peta: <select id="mv_var"><option value="ipm">IPM</option><option value="miskin_p0">Penduduk miskin (%)</option><option value="sanitasi">Sanitasi layak (%)</option><option value="rls">Rata-rata lama sekolah (tahun)</option><</select> &nbsp;<label><input type="checkbox" id="ls" > Simbol penduduk (30 kab/kota terbesar)</label></div>
+<div class="row"><div><h3>Sebaran Spasial Indikator Pembangunan Manusia <small style="font-weight:normal">(Peta Koroplet)</small></h3><div id="map" style="height:480px"></div><p class="src"></p><p class="src">Warna dipotong pada persentil 2–98 agar tidak didominasi pencilan. Delapan kab/kota tanpa geometri pada shapefile sumber tidak tampil. Batas wilayah: shapefile kab/kota (non-BPS). Lingkaran abu-abu menunjukkan 30 kab/kota berpenduduk terbesar; luas lingkaran sebanding dengan jumlah penduduk.</p></div></div>
 </section>
 
 <!-- Menu Hierarki -->
@@ -98,7 +98,8 @@ function sel(S){selK=S;
  $('selinfo').textContent=S?S.size+' kab/kota terpilih.':'';
  radar(S);
  heat(S);if(!S)resetPca();}
-
+function cent(){return G.features.map(f=>{let x=[],y=[];(function w(c){typeof c[0]==='number'?(x.push(c[0]),y.push(c[1])):c.forEach(w)})(f.geometry.coordinates);
+ return[f.properties.kode_wilayah,(Math.min(...x)+Math.max(...x))/2,(Math.min(...y)+Math.max(...y))/2]})}
 function drawMap(){
  const v=$('mv_var').value,pop=v==='penduduk',M=D.filter(d=>d.ada_geometri&&!isNaN(d[v])),
   zv=M.map(d=>pop?Math.log10(d[v]):d[v]),vals=[...zv].sort((a,b)=>a-b),q=p=>vals[Math.floor(p*(vals.length-1))],zmin=q(.02),zmax=q(.98);
@@ -111,6 +112,13 @@ function drawMap(){
    text:M.map(d=>d.nama_wilayah+', '+d.provinsi+'<br>Penduduk: '+d.penduduk.toLocaleString('id-ID')+' jiwa'),customdata:M.map(d=>d[v]),hovertemplate:ht},
   {type:'choropleth',geojson:G,featureidkey:'properties.kode_wilayah',locations:[],z:[],text:[],customdata:[],zmin,zmax,colorscale:cs,showscale:false,marker:{line:{width:1.2,color:'#000'}},hovertemplate:ht}
  ];
+ if($('ls').checked){
+  const C=Object.fromEntries(cent().map(c=>[c[0],c]));
+  const T=M.filter(d=>C[d.kode_wilayah]).sort((a,b)=>b.penduduk-a.penduduk).slice(0,30);
+  tr.push({type:'scattergeo',mode:'markers',name:'Penduduk',lon:T.map(d=>C[d.kode_wilayah][1]),lat:T.map(d=>C[d.kode_wilayah][2]),
+   text:T.map(d=>d.nama_wilayah+'<br>Penduduk: '+d.penduduk.toLocaleString('id-ID')+' jiwa'),hoverinfo:'text',
+   marker:{size:T.map(d=>d.penduduk),sizemode:'area',sizeref:2*Math.max(...T.map(d=>d.penduduk))/(30**2),color:'rgba(40,40,40,0.35)',line:{width:1,color:'#000'}}});
+ } 
  Plotly.newPlot('map',tr,{margin:{l:0,r:0,t:0,b:0},showlegend:false,geo:{visible:false,projection:{type:'mercator'},lonaxis:{range:[94.5,141.5]},lataxis:{range:[-11.5,6.5]},bgcolor:'rgba(0,0,0,0)'}},cfg);
  const m=$('map');let tm=null;
  m.removeAllListeners('plotly_hover');m.removeAllListeners('plotly_unhover');
@@ -125,7 +133,7 @@ function drawMap(){
  });
 }
 
-$('mv_var').onchange=drawMap;
+$('mv_var').onchange=drawMap;$('mv_var').onchange=$('ls').onchange=drawMap;
 function hier(){const ids=['ID'],lab=['Indonesia'],par=[''],val=[],ipm=[],A={};
  const add=(id,l,p,v,i)=>{ids.push(id);lab.push(l);par.push(p);A[id]=[v,v*i]};
  const PL=[...new Set(D.map(d=>d.pulau))],tot=[0,0];
